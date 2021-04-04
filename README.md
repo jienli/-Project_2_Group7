@@ -58,46 +58,46 @@
   Code:
   ```
     class BJKSTSketch(bucket_in: Set[(String, Int)] ,  z_in: Int, bucket_size_in: Int) extends Serializable {
-    /* A constructor that requies intialize the bucket and the z value. The bucket size is the bucket size of the sketch. */
+      /* A constructor that requies intialize the bucket and the z value. The bucket size is the bucket size of the sketch. */
 
-    var bucket: Set[(String, Int)] = bucket_in
-    var z: Int = z_in
+      var bucket: Set[(String, Int)] = bucket_in
+      var z: Int = z_in
 
-    val BJKST_bucket_size = bucket_size_in;
+      val BJKST_bucket_size = bucket_size_in;
 
-    def this(s: String, z_of_s: Int, bucket_size_in: Int){
-      /* A constructor that allows you pass in a single string, zeroes of the string, and the bucket size to initialize the sketch */
-      this(Set((s, z_of_s )) , z_of_s, bucket_size_in)
-    }
-
-    def +(that: BJKSTSketch): BJKSTSketch = {    /* Merging two sketches */
-      var totalB = bucket ++ that.bucket
-      z = that.z.max(z)
-      totalB = totalB.filter(_._2 >= z)
-      while (totalB.size > bucket_size_in) {
-        z += 1
-        totalB = totalB.filter(_._2 >= z)
+      def this(s: String, z_of_s: Int, bucket_size_in: Int){
+        /* A constructor that allows you pass in a single string, zeroes of the string, and the bucket size to initialize the sketch */
+        this(Set((s, z_of_s )) , z_of_s, bucket_size_in)
       }
-      return new BJKSTSketch(totalB, z, BJKST_bucket_size)
+
+      def +(that: BJKSTSketch): BJKSTSketch = {    /* Merging two sketches */
+        var totalB = bucket ++ that.bucket
+        z = that.z.max(z)
+        totalB = totalB.filter(_._2 >= z)
+        while (totalB.size > bucket_size_in) {
+          z += 1
+          totalB = totalB.filter(_._2 >= z)
+        }
+        return new BJKSTSketch(totalB, z, BJKST_bucket_size)
+      }
+
+      def add_string(s: String, z_of_s: Int): BJKSTSketch = {   /* add a string to the sketch */
+        return this + new BJKSTSketch(s, z_of_s, BJKST_bucket_size)
+      }
     }
 
-    def add_string(s: String, z_of_s: Int): BJKSTSketch = {   /* add a string to the sketch */
-      return this + new BJKSTSketch(s, z_of_s, BJKST_bucket_size)
+    def BJKST(x: RDD[String], width: Int, trials: Int) : Double = {
+      val h = Seq.fill(trials)(new hash_function(2000000000))
+
+      def param0 = (accu1: Seq[BJKSTSketch], accu2: Seq[BJKSTSketch]) => Seq.range(0, trials).map(i => accu1(i) + accu2(i))
+      def param1 = (accu1: Seq[BJKSTSketch], s: String) => Seq.range(0, trials).map( i => accu1(i).add_string(s, h(i).zeroes(h(i).hash(s))) )
+
+      // val x3 = x.slice(1,x.size).aggregate(Seq.range(0, trials).map(i => BJKSTSketch(x(0), h(i).zeroes(h(i).hash(x(0))), width)))( param1, param0)     // not slice function for rdd, double countign first element won't that much of a deal
+      val x3 = x.aggregate(Seq.range(0, trials).map(i => new BJKSTSketch(x.take(1)(0), h(i).zeroes(h(i).hash(x.take(1)(0))), width)))( param1, param0)
+      val ans = x3.map(b => b.bucket.size * scala.math.pow(2, b.z)).sortWith(_ < _)( trials/2)
+
+      return ans
     }
-  }
-  
-  def BJKST(x: RDD[String], width: Int, trials: Int) : Double = {
-    val h = Seq.fill(trials)(new hash_function(2000000000))
-
-    def param0 = (accu1: Seq[BJKSTSketch], accu2: Seq[BJKSTSketch]) => Seq.range(0, trials).map(i => accu1(i) + accu2(i))
-    def param1 = (accu1: Seq[BJKSTSketch], s: String) => Seq.range(0, trials).map( i => accu1(i).add_string(s, h(i).zeroes(h(i).hash(s))) )
-
-    // val x3 = x.slice(1,x.size).aggregate(Seq.range(0, trials).map(i => BJKSTSketch(x(0), h(i).zeroes(h(i).hash(x(0))), width)))( param1, param0)     // not slice function for rdd, double countign first element won't that much of a deal
-    val x3 = x.aggregate(Seq.range(0, trials).map(i => new BJKSTSketch(x.take(1)(0), h(i).zeroes(h(i).hash(x.take(1)(0))), width)))( param1, param0)
-    val ans = x3.map(b => b.bucket.size * scala.math.pow(2, b.z)).sortWith(_ < _)( trials/2)
-
-    return ans
-  }
   ```
   
   Local Output:
