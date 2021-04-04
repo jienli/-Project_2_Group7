@@ -92,7 +92,6 @@
       def param0 = (accu1: Seq[BJKSTSketch], accu2: Seq[BJKSTSketch]) => Seq.range(0, trials).map(i => accu1(i) + accu2(i))
       def param1 = (accu1: Seq[BJKSTSketch], s: String) => Seq.range(0, trials).map( i => accu1(i).add_string(s, h(i).zeroes(h(i).hash(s))) )
 
-      // val x3 = x.slice(1,x.size).aggregate(Seq.range(0, trials).map(i => BJKSTSketch(x(0), h(i).zeroes(h(i).hash(x(0))), width)))( param1, param0)     // not slice function for rdd, double countign first element won't that much of a deal
       val x3 = x.aggregate(Seq.range(0, trials).map(i => new BJKSTSketch(x.take(1)(0), h(i).zeroes(h(i).hash(x.take(1)(0))), width)))( param1, param0)
       val ans = x3.map(b => b.bucket.size * scala.math.pow(2, b.z)).sortWith(_ < _)( trials/2)
 
